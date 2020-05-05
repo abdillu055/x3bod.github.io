@@ -1,59 +1,99 @@
-<html>
-<head>
-	<title>Qiosz and Malr</title>
-<link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32" />
-<link rel="icon" type="image/png" href="favicon-16x16.png" sizes="16x16" />
+BASEDIR=$(dirname "$0")
 
-	<link rel="apple-touch-icon" sizes="76x76" href="favicon-32x32.png">
-	
-	<link rel="mask-icon" href="steve-jobs.svg" color="red">
-	
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<base target="_blank"/> 
+IPAIN="$BASEDIR"'/in'
+
+IPAOUT="$BASEDIR"'/out'
+
+MOBILEPROV="$BASEDIR"'/embedded.mobileprovision'
+
+DEVID="$1"
+
+echo "This program made by abdillu055/x3bod.github.io @othman_tech"
+
+echo "The purpose of this program is to resign ipa files with a specific Entitlements"
+echo "without changing the original Bundle Identifier to allow Push Notification"
+echo "Using Individuals Developer certificate."
+if [  $# -le 0 ]
+
+then
+echo 'usage: '$programname' "iPhone Distribution: xxxx (xxxx)"'
+
+exit 1
+
+fi
+
+echo ""
+
+cd $IPAIN
+
+find -d . -type f -name "*.ipa"> /tmp/N_files.txt
+
+while IFS='' read -r line || [[ -n "$line" ]]; do
+
+filename=$(basename "$line" .ipa)
+
+echo "Resigning : $filename"".ipa"
+
+currentipa=$IPAIN"/"$filename".ipa"
+
+tempextracted="/tmp/N_extracted"$filename
+
+echo $currentipa
+
+unzip -qo "$currentipa" -d $tempextracted
+
+APPLICATION=$(ls "$tempextracted"/Payload/)
+
+rm -rf $tempextracted"/__MACOSX"
+
+cp "$MOBILEPROV" $tempextracted"/Payload/$APPLICATION/embedded.mobileprovision"
+
+echo "Resigning "$filename".ipa"
 
 
+find "$tempextracted/Payload/$APPLICATION/libloader" -type f > /tmp/N_directories"$filename".txt 2>/dev/null
+
+find -d $tempextracted \( -name "*.app" -o -name "*.appex" -o -name "*.framework" -o -name "*.dylib" -o -name "CSub" \) >> /tmp/N_directories"$filename".txt
+
+security cms -D -i $tempextracted"/Payload/$APPLICATION/embedded.mobileprovision" >> /tmp/N_entitlements_full"$filename".plist 2>/dev/null
+
+/usr/libexec/PlistBuddy -x -c 'Print:Entitlements' /tmp/N_entitlements_full"$filename".plist >> /tmp/N_entitlements"$filename".plist
+
+############################## هذا المسار لحل مشكلة الايقونات في الاكس ار ِ############################## //
+/usr/libexec/PlistBuddy -c "delete :CFBundleIcons:CFBundlePrimaryIcon:CFBundleIconName" $tempextracted"/Payload/$APPLICATION/Info.plist" 2>/dev/null
+############################## // ِ############################## //
+
+############################## // هذا المسار لحذف الشهاده بعد دمجها ##############################
+############################## //rm لتفعيل الحذف احذف علامة # التي قبل   ##############################
+#rm $tempextracted"/Payload/$APPLICATION/embedded.mobileprovision"
+############################## // ِ############################## //
+
+######################## هذا المسار لحذف ملف الاجهزة UISupportedDevices من ملف الانفو بلست ِ################## //
+/usr/libexec/PlistBuddy -c "delete :UISupportedDevices" $tempextracted"/Payload/$APPLICATION/Info.plist" 2>/dev/null
 
 
+while IFS='' read -r line || [[ -n "$line" ]]; do
 
-<body class="pinstripe nolegacy">
-<panel>
-	
-	<div align="center"> 
-	
-	<block>
-		<p>مرحبا بك في سورس عبود </p>
-</block>
-	
-<block>
-	<p>ادوات خفيفه ومهمة بعضها محذوفة</p>
-	<p>ضيف لا افوتك</p>
-	<p>ادوات اساسية</p>
-	
-</block>
+/usr/bin/codesign --continue -f -s "$DEVID" --entitlements "/tmp/N_entitlements"$filename".plist"  "$line" >/dev/null 2>&1
 
-<fieldset>
-	<a href="cydia://url/https://cydia.saurik.com/api/share#?source=https://3bodalanzi.yourepo.com/cydia/"><img src="./CydiaIcon.png" class="icon"><div><div><label><p>اضافة السورس للسيديا</p></label><label class="url"><p></p></label></div></div></a>
-</fieldset>
-<block>
-	<p>الــدعم الفني</p>
-</block>
+done < /tmp/N_directories"$filename".txt
 
-<fieldset>
-	<a href="mailto:gernaskaler@yahoo.com"><img src="./opened-email-envelope.png" class="icon"><div><div><label><p>لمراسلتي</p></label></div></div></a>
-</fieldset>
+echo "Creating the Signed IPA for "$filename".ipa"
 
-<block>
-<a href="https://twitter.com/Qiosz">Twitter</a>
-</block>
+cd $tempextracted
 
+zip -qry $IPAOUT"/"$filename".ipa" *
 
+rm -rf $tempextracted
 
-<footer> &copy; 2014 - 2017 Malr Rdd Inc. 
+rm /tmp/N_directories"$filename".txt
 
-	 
+rm /tmp/N_entitlements"$filename".plist
 
-	</div>
-	
-</panel>
-</body>
-</html>
+rm /tmp/N_entitlements_full"$filename".plist
+
+done < /tmp/N_files.txt
+
+rm /tmp/N_files.txt
+
+echo "Done .. Thank you for using Resign from abdillu055/x3bod.github.io"
